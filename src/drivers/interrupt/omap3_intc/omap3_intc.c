@@ -73,6 +73,7 @@ void software_init_hook(void) {
 
 
 static int omap3_intc_init(void) {
+#if 0
 	/* Map one vmem page to handle this device if mmu is used */
 	mmap_device_memory(
 			(void*) (OMAP35X_INTC_BASE & ~MMU_PAGE_MASK),
@@ -83,7 +84,7 @@ static int omap3_intc_init(void) {
 			MAP_FIXED,
 			OMAP35X_INTC_BASE & ~MMU_PAGE_MASK
 			);
-
+#endif
 	return 0;
 }
 
