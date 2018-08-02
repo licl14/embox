@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 #include <drivers/omap_gpmc.h>
+#include <drivers/gpmc.h>
 #include <drivers/mtd/nand.h>
 
 #include <embox/unit.h>
@@ -35,10 +36,16 @@ int gpmc_nand_init(void) {
 
 	for (i = 0; i < GPMC_CS_NUM; i++) {
 		uint32_t id;
+		uint32_t base;
 
 		//gpmc_reg_write(GPMC_PREFETCH_CONFIG2, 1);
 
-		//gpmc_cs_reg_write(i, GPMC_CS_NAND_ADDRESS, 0x0);
+		if (gpmc_cs_enabled(i)) {
+			log_boot("gpmc cs %d inited\n",i);
+			gpmc_cs_init(i, &base, 0x1000000);
+		}
+
+		gpmc_cs_reg_write(i, GPMC_CS_NAND_ADDRESS, 0x0);
 		gpmc_cs_reg_write(i, GPMC_CS_NAND_COMMAND, NAND_CMD_READID);
 		//gpmc_cs_reg_write(i, GPMC_CS_NAND_COMMAND, NAND_CMD_READID);
 		id = gpmc_cs_reg_read(i, GPMC_CS_NAND_DATA);
