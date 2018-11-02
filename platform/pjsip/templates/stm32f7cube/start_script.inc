@@ -1,3 +1,4 @@
 "ifconfig eth0 192.168.0.128 netmask 255.255.255.0 up",
 "route add 192.168.0.0 netmask 255.255.255.0 eth0",
+"route add default gw 192.168.0.1 eth0",
 "pjsip_simpleua",
