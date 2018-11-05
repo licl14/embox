@@ -24,8 +24,8 @@
 
 struct pt_regs_fpu {
 	union  {
-		volatile float  s[32];
-		volatile double d[16];
+		float  s[32];
+		double d[16];
 	} vfp_regs;
 };
 
