@@ -15,8 +15,8 @@
 #define FPU_DATA_LEN 32
 
 /* Common registers for all ARMv7-M */
-#define MVFR0 0xE000EF40
-#define MVFR1 0xE000EF44
+#define FPU_MVFR0 0xE000EF40
+#define FPU_MVFR1 0xE000EF44
 
 #ifndef __ASSEMBLER__
 #include <string.h>
@@ -24,8 +24,8 @@
 
 struct pt_regs_fpu {
 	union  {
-		float  s[32];
-		double d[16];
+		volatile float  s[32];
+		volatile double d[16];
 	} vfp_regs;
 };
 
@@ -40,7 +40,7 @@ static inline void arm_fpu_context_init(void *opaque) {
 /* TODO write in the more efficient way with UsageFault */
 
 #define ARM_FPU_CONTEXT_SAVE_INC(tmp, stack) \
-	ldr       tmp, =CPACR; \
+	ldr       tmp, =FPU_CPACR; \
 	ldr       tmp, [tmp]; \
 	tst       tmp, #0xF00000; \
 	beq       fpu_out_save_inc; \
@@ -48,7 +48,7 @@ static inline void arm_fpu_context_init(void *opaque) {
 fpu_out_save_inc:
 
 #define ARM_FPU_CONTEXT_LOAD_INC(tmp, stack) \
-	ldr       tmp, =CPACR; \
+	ldr       tmp, =FPU_CPACR; \
 	ldr       tmp, [tmp]; \
 	tst       tmp, #0xF00000; \
 	beq       fpu_out_save_inc; \
