@@ -591,6 +591,10 @@ static irq_return_t ti816x_interrupt_mactxint0(unsigned int irq_num,
 		hdesc = head_from_desc(desc);
 		dcache_inval(desc, sizeof *desc);
 		assert(CHECK_TXOK(desc->flags));
+		if (desc->flags & EMAC_DESC_F_OWNER) {
+			continue;
+		}
+
 		assert(!CHECK_TXERR(desc->flags));
 
 		eoq = desc->flags & EMAC_DESC_F_EOQ;
