@@ -15,6 +15,9 @@
 #include <drivers/audio/portaudio.h>
 #include <fs/file_format.h>
 #include <util/math.h>
+#include <framework/mod/options.h>
+
+#define USE_LOCAL_BUFFER OPTION_GET(BOOLEAN, use_local_buffer)
 
 /* Maximum recording duration in milliseconds */
 #define MAX_REC_DURATION 50000
@@ -29,14 +32,16 @@ static void print_usage(void) {
 			"-c - channel count (1 or 2)\n"
 			"-d - recording duration in msec\n"
 			"-s - \"record\" sin() instead of using microphone\n"
+			"-m - record to memory instead of file \n"
 			"Examples:\n"
 			"  record stereo44100.wav - record stereo44100.wav with default settings\n"
 			"  record -r 8000 -c 1 -d 10000 mono8000.wav - record 10 sec mono 8000hz\n"
 			"  record -s sin.wav - record sin() to sin.wav\n"
+			"  record -m C0000000 - record to 0xC0000000. After you can do \"play -m\"\n"
 		);
 }
 
-static void write_wave(char *name, uint8_t *buf, int len) {
+static void write_wave_file(char *name, uint8_t *buf, int len) {
 	struct wave_header hdr;
 	int fd = open(name, O_CREAT | O_RDWR);
 
@@ -46,7 +51,26 @@ static void write_wave(char *name, uint8_t *buf, int len) {
 	write(fd, buf, len);
 }
 
-static uint16_t in_buf[AUDIO_BUFFER_SIZE];
+static void write_wave_addr(uint32_t addr, uint8_t *buf, int len) {
+	struct wave_header hdr;
+
+	_wave_header_fill(&hdr, chan_n, sample_rate, 16, len);
+
+	/* Since we already have audio in memory just prepend it with header */
+	memcpy(((uint8_t *) addr) - sizeof(hdr), &hdr, sizeof(hdr));
+}
+
+#define AUDIO_ADDR_UNINITIALIZED ((uint32_t) -1)
+
+static uint32_t audio_memory_addr = AUDIO_ADDR_UNINITIALIZED;
+
+#if USE_LOCAL_BUFFER
+static uint16_t audio_buf[AUDIO_BUFFER_SIZE];
+static uint16_t *in_buf = audio_buf;
+#else
+static uint16_t *in_buf = NULL;
+#endif
+
 static int cur_ptr;
 
 double _sin(double x) {
@@ -124,7 +148,7 @@ int main(int argc, char **argv) {
 	chan_n = 2;
 	callback = &record_callback;
 
-	while (-1 != (opt = getopt(argc, argv, "nshd:r:c:"))) {
+	while (-1 != (opt = getopt(argc, argv, "nshd:r:c:m:"))) {
 		switch (opt) {
 		case 'h':
 			print_usage();
@@ -156,13 +180,23 @@ int main(int argc, char **argv) {
 				return -1;
 			}
 			break;
+		case 'm':
+			if ((optarg == NULL) || (!sscanf(optarg, "%x", &audio_memory_addr))) {
+				print_usage();
+				return -1;
+			}
+			in_buf = (uint16_t *) (AUDIO_ADDR_UNINITIALIZED +
+				sizeof (struct wave_header));
+			break;
 		default:
 			printf("Unknown argument: %c", opt);
 			return 0;
 		}
 	}
 
-	filename = argv[argc - 1];
+	if (audio_memory_addr != AUDIO_ADDR_UNINITIALIZED) {
+		filename = argv[argc - 1];
+	}
 
 	cur_ptr = 0;
 	/* Initialize PA */
@@ -200,9 +234,14 @@ int main(int argc, char **argv) {
 				"sin will be recorded to the output file\n");
 	}
 
-	printf("Recording wav pararemeters:\n"
-			"file - %s, duration - %d msec, rate - %d hz, %s wav\n\n",
-			filename, sleep_msec, sample_rate, chan_n == 1 ? "mono" : "stereo");
+	printf("Recording wav pararemeters:\n");
+	if (audio_memory_addr == AUDIO_ADDR_UNINITIALIZED) {
+		printf("File: %s\n", filename);
+	} else {
+		printf("File memory address: 0x%x\n", audio_memory_addr);
+	}
+	printf("Duration - %d msec, rate - %d hz, %s wav\n\n",
+			sleep_msec, sample_rate, chan_n == 1 ? "mono" : "stereo");
 
 	if (paNoError != (err = Pa_StartStream(stream))) {
 		printf("Portaudio error: could not start stream!\n");
@@ -221,7 +260,11 @@ int main(int argc, char **argv) {
 		goto err_terminate_pa;
 	}
 
-	write_wave(filename, (uint8_t*)in_buf, cur_ptr * 2);
+	if (audio_memory_addr == AUDIO_ADDR_UNINITIALIZED) {
+		write_wave_file(filename, (uint8_t*) in_buf, cur_ptr * 2);
+	} else {
+		write_wave_addr(audio_memory_addr, (uint8_t*) in_buf, cur_ptr * 2);
+	}
 
 err_terminate_pa:
 	if (paNoError != (err = Pa_Terminate()))
