@@ -34,7 +34,6 @@ struct audio_dev {
 	const char *ad_name;
 	void *ad_priv;
 	audio_dev_dir_t dir;
-	size_t buf_len;
 	uint8_t num_of_chan;
 	uint8_t max_chan;
 };
