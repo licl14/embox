@@ -27,7 +27,7 @@ struct stm32_dev_priv {
 };
 
 static struct stm32_hw_out {
-	struct audio_dev *out;
+	void *stream;
 } stm32_hw_out;
 
 /* Two buffers of STM32_MAX_BUF_LEN size */
@@ -49,8 +49,6 @@ static void stm32_dev_start(struct audio_dev *dev) {
 	if (0 != BSP_AUDIO_OUT_Play((uint16_t*) &dac_out_bufs[0], sizeof(dac_out_bufs))) {
 		log_error("EVAL_AUDIO_Play error");
 	}
-
-	stm32_hw_out.out = dev;
 }
 
 static void stm32_dev_pause(struct audio_dev *dev) {
@@ -119,9 +117,13 @@ uint8_t *audio_dev_get_in_cur_ptr(struct audio_dev *audio_dev) {
 	return NULL;
 }
 
+void audio_dev_open_stream(struct audio_dev *audio_dev, void *stream) {
+	stm32_hw_out.stream = stream;
+}
+
 static void stm32_audio_irq_fill_buffer(int buf_index) {
 	stm32_dac.out_buf = &dac_out_bufs[0] + buf_index * STM32_MAX_BUF_LEN;
-	Pa_StartStream(stm32_hw_out.out->stream);
+	Pa_StartStream(stm32_hw_out.stream);
 }
 
 void BSP_AUDIO_OUT_HalfTransfer_CallBack(void) {
