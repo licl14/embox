@@ -115,11 +115,7 @@ uint8_t *audio_dev_get_out_cur_ptr(struct audio_dev *audio_dev) {
 	return priv->out_buf;
 }
 
-uint8_t *audio_dev_get_in_cur_ptr(struct audio_dev *audio_dev) {
-	return NULL;
-}
-
-void audio_dev_open_stream(struct audio_dev *audio_dev, void *stream) {
+void audio_dev_open_out_stream(struct audio_dev *audio_dev, void *stream) {
 	stm32_hw_out.stream = stream;
 }
 
