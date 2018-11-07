@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <assert.h>
 
 #include <drivers/audio/portaudio.h>
 #include <fs/file_format.h>
@@ -57,7 +58,7 @@ static void write_wave_addr(uint32_t addr, uint8_t *buf, int len) {
 	_wave_header_fill(&hdr, chan_n, sample_rate, 16, len);
 
 	/* Since we already have audio in memory just prepend it with header */
-	memcpy(((uint8_t *) addr) - sizeof(hdr), &hdr, sizeof(hdr));
+	memcpy((void *) addr, &hdr, sizeof(hdr));
 }
 
 #define AUDIO_ADDR_UNINITIALIZED ((uint32_t) -1)
@@ -117,15 +118,19 @@ static int record_callback(const void *inputBuffer, void *outputBuffer,
 	int i;
 	uint16_t *in_data16 = (uint16_t *)inputBuffer;
 
+	assert(in_data16 && in_buf);
+
 	for (i = 0; i < framesPerBuffer; i++) {
-		if (cur_ptr > sizeof(in_buf))
+		if (cur_ptr > AUDIO_BUFFER_SIZE) {
 			break;
+		}
 		memcpy(&in_buf[cur_ptr], &in_data16[chan_n * i], 2 * chan_n);
 		cur_ptr += chan_n;
 	}
 
-	if (cur_ptr * 2 > sizeof(in_buf))
+	if (cur_ptr > AUDIO_BUFFER_SIZE) {
 		return paComplete;
+	}
 	return paContinue;
 }
 
@@ -185,8 +190,7 @@ int main(int argc, char **argv) {
 				print_usage();
 				return -1;
 			}
-			in_buf = (uint16_t *) (AUDIO_ADDR_UNINITIALIZED +
-				sizeof (struct wave_header));
+			in_buf = (uint16_t *) (audio_memory_addr + sizeof (struct wave_header));
 			break;
 		default:
 			printf("Unknown argument: %c", opt);
