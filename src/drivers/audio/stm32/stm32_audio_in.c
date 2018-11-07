@@ -110,6 +110,7 @@ static const struct audio_dev_ops stm32_dev_ops = {
 };
 
 static struct stm32_dev_priv stm32_adc = {
+	.devid = STM32_ID_DIGITAL_IN,
 	.in_buf = &adc_in_bufs[0],
 	.in_buf_len = STM32_MAX_BUF_LEN,
 };
@@ -117,7 +118,8 @@ static struct stm32_dev_priv stm32_adc = {
 AUDIO_DEV_DEF("stm32_adc", (struct audio_dev_ops *)&stm32_dev_ops, &stm32_adc, AUDIO_DEV_INPUT);
 
 uint8_t *audio_dev_get_in_cur_ptr(struct audio_dev *audio_dev) {
-	return stm32_adc.in_buf;
+	struct stm32_dev_priv *priv = audio_dev->ad_priv;
+	return priv->devid == STM32_ID_DIGITAL_IN ? stm32_adc.in_buf : NULL;
 }
 
 void audio_dev_open_in_stream(struct audio_dev *audio_dev, void *stream) {
