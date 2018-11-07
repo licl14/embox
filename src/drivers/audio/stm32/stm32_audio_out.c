@@ -24,6 +24,7 @@ struct stm32_dev_priv {
 	int devid;
 	uint8_t *out_buf;
 	uint32_t out_buf_len;
+	int rate;
 };
 
 static struct stm32_hw_out {
@@ -34,17 +35,17 @@ static struct stm32_hw_out {
 static uint8_t dac_out_bufs[STM32_MAX_BUF_LEN * 2];
 
 static void stm32_dev_start(struct audio_dev *dev) {
+	struct stm32_dev_priv *priv = dev->ad_priv;
+
 	if (0 != irq_attach(STM32_AUDIO_OUT_IRQ, stm32_audio_i2s_dma_interrupt,
 				0, dev, "stm32_audio_out")) {
 		log_error("irq_attach error");
 	}
 
 	if (0 != BSP_AUDIO_OUT_Init(OUTPUT_DEVICE_HEADPHONE, DEFAULT_VOLUME,
-				DEFAULT_SAMPLE_RATE)) {
+				priv->rate)) {
 		log_error("EVAL_AUDIO_Init error");
 	}
-
-	//BSP_AUDIO_OUT_SetFrequency(22500);
 
 	if (0 != BSP_AUDIO_OUT_Play((uint16_t*) &dac_out_bufs[0], sizeof(dac_out_bufs))) {
 		log_error("EVAL_AUDIO_Play error");
@@ -70,6 +71,7 @@ static void stm32_dev_stop(struct audio_dev *dev) {
 }
 
 static int stm32_dev_ioctl(struct audio_dev *dev, int cmd, void *args) {
+	struct stm32_dev_priv *priv = dev->ad_priv;
 	switch(cmd) {
 	case ADIOCTL_IN_SUPPORT:
 		return 0;
@@ -81,8 +83,8 @@ static int stm32_dev_ioctl(struct audio_dev *dev, int cmd, void *args) {
 		return 0; /* There is no function to get rate in Cube...*/
 	case ADIOCTL_SET_RATE:
 	{
-		int rate = *(int *) args;
-		BSP_AUDIO_OUT_SetFrequency(rate);
+		priv->rate = *(int *) args;
+		BSP_AUDIO_OUT_SetFrequency(priv->rate);
 		return 0;
 	}
 	default:
@@ -106,7 +108,7 @@ static struct stm32_dev_priv stm32_dac = {
 	.out_buf_len = STM32_MAX_BUF_LEN,
 };
 
-AUDIO_DEV_DEF("stm32_dac", (struct audio_dev_ops *)&stm32_dev_ops, &stm32_dac);
+AUDIO_DEV_DEF("stm32_dac", (struct audio_dev_ops *)&stm32_dev_ops, &stm32_dac, AUDIO_DEV_OUTPUT);
 
 uint8_t *audio_dev_get_out_cur_ptr(struct audio_dev *audio_dev) {
 	struct stm32_dev_priv *priv = audio_dev->ad_priv;

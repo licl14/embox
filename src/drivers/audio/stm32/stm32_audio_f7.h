@@ -16,7 +16,6 @@
 #include "stm32746g_discovery_audio.h"
 
 #define DEFAULT_VOLUME           OPTION_GET(NUMBER, volume)
-#define DEFAULT_SAMPLE_RATE      OPTION_GET(NUMBER, sample_rate)
 
 #define MAX_BUF_LEN     2048
 #define OUTPUT_CHAN_N   2
