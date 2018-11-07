@@ -40,12 +40,6 @@ static struct stm32_hw_in {
 /* Two buffers of STM32_MAX_BUF_LEN size */
 static uint8_t adc_in_bufs[STM32_MAX_BUF_LEN * 2];
 
-static uint8_t audio_in_buffer[STM32_MAX_BUF_LEN];
-
-uint8_t *get_audio_in_buffer(void) {
-	return audio_in_buffer;
-}
-
 static void stm32_dev_start(struct audio_dev *dev) {
 	struct stm32_dev_priv *priv = dev->ad_priv;
 
@@ -116,6 +110,7 @@ static const struct audio_dev_ops stm32_dev_ops = {
 };
 
 static struct stm32_dev_priv stm32_adc = {
+	.in_buf = &adc_in_bufs[0],
 	.in_buf_len = STM32_MAX_BUF_LEN,
 };
 
@@ -131,7 +126,6 @@ void audio_dev_open_in_stream(struct audio_dev *audio_dev, void *stream) {
 
 static void stm32_audio_irq_fill_buffer(int buf_index) {
 	stm32_adc.in_buf = &adc_in_bufs[0] + buf_index * STM32_MAX_BUF_LEN;
-	memcpy(audio_in_buffer, stm32_adc.in_buf, STM32_MAX_BUF_LEN);
 	Pa_StartStream(stm32_hw_in.stream);
 }
 
