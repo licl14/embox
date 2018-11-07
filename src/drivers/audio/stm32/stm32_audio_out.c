@@ -103,7 +103,7 @@ static const struct audio_dev_ops stm32_dev_ops = {
 };
 
 static struct stm32_dev_priv stm32_dac = {
-	.devid       = 1,
+	.devid       = STM32_ID_DIGITAL_OUT,
 	.out_buf     = &dac_out_bufs[0],
 	.out_buf_len = STM32_MAX_BUF_LEN,
 };
@@ -112,7 +112,7 @@ AUDIO_DEV_DEF("stm32_dac", (struct audio_dev_ops *)&stm32_dev_ops, &stm32_dac, A
 
 uint8_t *audio_dev_get_out_cur_ptr(struct audio_dev *audio_dev) {
 	struct stm32_dev_priv *priv = audio_dev->ad_priv;
-	return priv->out_buf;
+	return priv->devid == STM32_ID_DIGITAL_OUT ? priv->out_buf : NULL;
 }
 
 void audio_dev_open_out_stream(struct audio_dev *audio_dev, void *stream) {

@@ -25,6 +25,9 @@
 #define STM32_AUDIO_IN_DMA_IRQ (AUDIO_IN_SAIx_DMAx_IRQ + 16)
 #define STM32_AUDIO_IN_IRQ     (AUDIO_IN_INT_IRQ + 16)
 
+#define STM32_ID_DIGITAL_OUT 0
+#define STM32_ID_DIGITAL_IN  1
+
 static_assert(76 == STM32_AUDIO_OUT_IRQ);
 static_assert(86 == STM32_AUDIO_IN_DMA_IRQ);
 static_assert(56 == STM32_AUDIO_IN_IRQ);
