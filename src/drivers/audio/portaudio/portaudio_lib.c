@@ -83,8 +83,17 @@ static void _stereo_to_mono(void *buf, int len) {
 static void pa_do_audio_convertion(struct pa_strm *pa_stream,
 		struct audio_dev *audio_dev, uint8_t *out_buf,
 		uint8_t *in_buf, int inp_frames) {
-	if (pa_stream->number_of_chan != audio_dev->num_of_chan) {
-		if (pa_stream->number_of_chan == 1 && audio_dev->num_of_chan == 2) {
+
+	int num_of_chan = audio_dev->ad_ops->ad_ops_ioctl(audio_dev,
+		audio_dev->dir == AUDIO_DEV_OUTPUT
+		? ADIOCTL_OUT_SUPPORT
+		: ADIOCTL_IN_SUPPORT,
+		NULL);
+	assert(num_of_chan > 0);
+	num_of_chan = num_of_chan & AD_STEREO_SUPPORT ? 2 : 1;
+
+	if (pa_stream->number_of_chan != num_of_chan) {
+		if (pa_stream->number_of_chan == 1 && num_of_chan == 2) {
 			switch (audio_dev->dir) {
 			case AUDIO_DEV_OUTPUT:
 				_mono_to_stereo(out_buf, inp_frames);
@@ -95,7 +104,7 @@ static void pa_do_audio_convertion(struct pa_strm *pa_stream,
 			default:
 				break;
 			}
-		} else if (pa_stream->number_of_chan == 2 && audio_dev->num_of_chan == 1) {
+		} else if (pa_stream->number_of_chan == 2 && num_of_chan == 1) {
 			switch (audio_dev->dir) {
 			case AUDIO_DEV_OUTPUT:
 				_stereo_to_mono(out_buf, inp_frames);
