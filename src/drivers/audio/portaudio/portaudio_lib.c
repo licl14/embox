@@ -63,8 +63,8 @@ static void _buf_scale(void *buf, int len1, int len2) {
 static void _mono_to_stereo(void *buf, int len) {
 	/* Assume data is 16-bit */
 	uint16_t *b16 = buf;
-	for (int i = len * 2 - 1; i >= 0; i--) {
-		b16[i] = b16[i / 2];
+	for (int i = len * 4 - 1; i >= 0; i--) {
+		b16[i] = b16[i / 4];
 	}
 }
 
@@ -177,7 +177,7 @@ static void *pa_thread_hnd(void *arg) {
 	/* Even if source is mono channel,
 	 * we will anyway put twice as much data
 	 * to fill right channel as well */
-	out_frames /= 2; /* XXX work with mono-support devices */
+	out_frames /= 4; /* XXX work with mono-support devices */
 
 	/* TODO Handle bitrate problems */
 	inp_frames = out_frames;
