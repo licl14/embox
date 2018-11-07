@@ -9,6 +9,7 @@ module stm32_audio_f7 {
 	source "stm32_audio_f7.h"
 
 	source "stm32_audio_out.c"
+	source "stm32_audio_in.c"
 
 	depends embox.driver.audio.portaudio_lib
 	depends embox.driver.audio.audio_dev
