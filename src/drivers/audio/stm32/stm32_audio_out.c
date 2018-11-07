@@ -47,6 +47,8 @@ static void stm32_dev_start(struct audio_dev *dev) {
 		log_error("EVAL_AUDIO_Init error");
 	}
 
+	BSP_AUDIO_OUT_SetAudioFrameSlot(CODEC_AUDIOFRAME_SLOT_02);
+
 	if (0 != BSP_AUDIO_OUT_Play((uint16_t*) &dac_out_bufs[0], sizeof(dac_out_bufs))) {
 		log_error("EVAL_AUDIO_Play error");
 	}
