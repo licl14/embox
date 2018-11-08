@@ -34,6 +34,7 @@ struct pa_strm {
 	uint8_t devid;
 	uint8_t number_of_chan;
 	uint32_t sample_format;
+	int rate;
 
 	struct thread *pa_thread;
 	enum pa_state state;
@@ -48,6 +49,7 @@ struct pa_strm {
 
 POOL_DEF(pa_strm_pool, struct pa_strm, MODOPS_PA_STREAM_COUNT);
 
+#if 0
 static void _buf_scale(void *buf, int len1, int len2) {
 	uint16_t *b16 = buf;
 	if (len2 > len1) {
@@ -56,6 +58,7 @@ static void _buf_scale(void *buf, int len1, int len2) {
 		}
 	}
 }
+#endif
 
 /**
  * @brief Duplicate left channel for the buffer
@@ -79,8 +82,45 @@ static void _stereo_to_mono(void *buf, int len) {
 	}
 }
 
+static void pa_do_rate_convertion(struct pa_strm *pa_stream,
+		struct audio_dev *audio_dev, uint8_t *buf, int inp_frames) {
+	int i, len, div;
+	uint32_t *buf32 = (uint32_t *) buf;
+	int audio_dev_rate = audio_dev->ad_ops->ad_ops_ioctl(audio_dev,
+			ADIOCTL_GET_RATE, NULL);
+
+	printk(">>>> pa_stream->rate = %d, audio_dev_rate = %d\n",
+		pa_stream->rate, audio_dev_rate);
+
+	if (pa_stream->rate == audio_dev_rate) {
+		return;
+	}
+
+	len = inp_frames;
+
+	if (audio_dev_rate > pa_stream->rate) {
+		div = audio_dev_rate / pa_stream->rate;
+		assert(div > 1);
+
+		switch (audio_dev->dir) {
+		case AUDIO_DEV_OUTPUT:
+			for (i = len - 1; i >= 0; i--) {
+				buf32[i] = buf32[i / div];
+			}
+			break;
+		case AUDIO_DEV_INPUT:
+			for (i = 0; i < len; i++) {
+				buf32[i] = buf32[div * i];
+			}
+			break;
+		default:
+			break;
+		}
+	}
+}
+
 /* Sort out problems related to the number of channels */
-static void pa_do_audio_convertion(struct pa_strm *pa_stream,
+static void pa_do_channel_convertion(struct pa_strm *pa_stream,
 		struct audio_dev *audio_dev, uint8_t *out_buf,
 		uint8_t *in_buf, int inp_frames) {
 
@@ -121,7 +161,7 @@ static void pa_do_audio_convertion(struct pa_strm *pa_stream,
 		}
 	}
 }
-
+#include <kernel/printk.h>
 static void *pa_thread_hnd(void *arg) {
 	struct pa_strm *pa_stream = (struct pa_strm *) arg;
 	int err;
@@ -131,6 +171,8 @@ static void *pa_thread_hnd(void *arg) {
 	int inp_frames;
 	int out_frames;
 	int buf_len;
+	int audio_dev_rate;
+	int div;
 
 	audio_dev = audio_dev_get_by_idx(pa_stream->devid);
 	assert(audio_dev);
@@ -138,6 +180,8 @@ static void *pa_thread_hnd(void *arg) {
 	assert(audio_dev->ad_ops->ad_ops_start);
 	assert(audio_dev->ad_ops->ad_ops_resume);
 
+	audio_dev_rate = audio_dev->ad_ops->ad_ops_ioctl(audio_dev,
+			ADIOCTL_GET_RATE, NULL);
 	buf_len = audio_dev->ad_ops->ad_ops_ioctl(audio_dev,
 								ADIOCTL_BUFLEN, NULL);
 	if (buf_len == -1) {
@@ -179,8 +223,11 @@ static void *pa_thread_hnd(void *arg) {
 	 * to fill right channel as well */
 	out_frames /= 2; /* XXX work with mono-support devices */
 
-	/* TODO Handle bitrate problems */
+	div = audio_dev_rate / pa_stream->rate;
+	assert(div > 0);
 	inp_frames = out_frames;
+	inp_frames /= div;
+
 	while (1) {
 		SCHED_WAIT(pa_stream->active);
 
@@ -199,7 +246,9 @@ static void *pa_thread_hnd(void *arg) {
 		}
 
 		if (audio_dev->dir == AUDIO_DEV_INPUT) {
-			pa_do_audio_convertion(pa_stream, audio_dev, out_buf, in_buf,
+			pa_do_rate_convertion(pa_stream, audio_dev, in_buf,
+				inp_frames);
+			pa_do_channel_convertion(pa_stream, audio_dev, out_buf, in_buf,
 				inp_frames);
 		}
 
@@ -226,9 +275,10 @@ static void *pa_thread_hnd(void *arg) {
 		}
 
 		if (audio_dev->dir == AUDIO_DEV_OUTPUT) {
-			_buf_scale(out_buf, inp_frames, out_frames);
-			pa_do_audio_convertion(pa_stream, audio_dev, out_buf, in_buf,
+			pa_do_channel_convertion(pa_stream, audio_dev, out_buf, in_buf,
 				inp_frames);
+			pa_do_rate_convertion(pa_stream, audio_dev, out_buf,
+				inp_frames * div);
 		}
 		pa_stream->active = 0;
 
@@ -302,6 +352,7 @@ PaError Pa_OpenStream(PaStream** stream,
 		ADIOCTL_GET_RATE, NULL);
 	if ((prev_rate != -1) && (prev_rate != rate)) {
 		audio_dev->ad_ops->ad_ops_ioctl(audio_dev, ADIOCTL_SET_RATE, &rate);
+		pa_stream->rate = rate;
 	}
 
 	audio_dev->dir == AUDIO_DEV_OUTPUT
