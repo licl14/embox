@@ -19,11 +19,6 @@
 
 #include <drivers/audio/stm32_audio.h>
 
-static irq_return_t stm32_audio_in_dma_interrupt(unsigned int irq_num,
-        void *dev_id);
-static irq_return_t stm32_audio_in_interrupt(unsigned int irq_num,
-		void *audio_dev);
-
 static struct stm32_dev_priv stm32_adc;
 
 struct stm32_dev_priv {
@@ -40,25 +35,14 @@ static struct stm32_hw_in {
 /* Two buffers of STM32_MAX_BUF_LEN size */
 static uint8_t adc_in_bufs[STM32_MAX_BUF_LEN * 2];
 
-static void stm32_dev_start(struct audio_dev *dev) {
-	struct stm32_dev_priv *priv = dev->ad_priv;
-
-	if (0 != irq_attach(STM32_AUDIO_IN_DMA_IRQ, stm32_audio_in_dma_interrupt,
-				0, dev, "stm32_audio_dma_in")) {
-		log_error("irq_attach error");
-	}
-	if (0 != irq_attach(STM32_AUDIO_IN_IRQ, stm32_audio_in_interrupt,
-				0, dev, "stm32_audio_in")) {
-		log_error("irq_attach error");
-	}
-
-	if (0 != BSP_AUDIO_IN_Init(INPUT_DEVICE_DIGITAL_MICROPHONE_2, 100, priv->rate)) {
-		log_error("BSP_AUDIO_IN_Init error");
-	}
-
+void stm32_audio_in_start(void) {
 	if (0 != BSP_AUDIO_IN_Record((uint16_t *) &adc_in_bufs[0], STM32_MAX_BUF_LEN)) {
 		log_error("BSP_AUDIO_IN_Record error");
 	}
+}
+
+static void stm32_dev_start(struct audio_dev *dev) {
+	stm32_audio_init_start();
 }
 
 static void stm32_dev_pause(struct audio_dev *dev) {
@@ -87,7 +71,7 @@ static int stm32_dev_ioctl(struct audio_dev *dev, int cmd, void *args) {
 	case ADIOCTL_BUFLEN:
 		return STM32_MAX_BUF_LEN;
 	case ADIOCTL_GET_RATE:
-		return 0; /* There is no function to get rate in Cube...*/
+		return 16000;
 	case ADIOCTL_SET_RATE:
 	{
 		struct stm32_dev_priv *priv = dev->ad_priv;
@@ -143,14 +127,14 @@ void BSP_AUDIO_IN_Error_CallBack() {
 	log_error("");
 }
 
-static irq_return_t stm32_audio_in_dma_interrupt(unsigned int irq_num,
+irq_return_t stm32_audio_in_dma_interrupt(unsigned int irq_num,
 		void *audio_dev) {
 	//log_info("");
 	audio_in_dma_irq_handler();
 	return IRQ_HANDLED;
 }
 
-static irq_return_t stm32_audio_in_interrupt(unsigned int irq_num,
+irq_return_t stm32_audio_in_interrupt(unsigned int irq_num,
 		void *audio_dev) {
 	//log_info("");
 	audio_in_irq_handler();

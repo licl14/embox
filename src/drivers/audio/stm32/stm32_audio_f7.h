@@ -55,4 +55,13 @@ static inline void audio_in_irq_handler(void) {
 	}
 }
 
+extern  irq_return_t stm32_audio_in_dma_interrupt(unsigned int irq_num,
+			void *dev_id);
+extern  irq_return_t stm32_audio_in_interrupt(unsigned int irq_num,
+			void *audio_dev);
+extern irq_return_t stm32_audio_i2s_dma_interrupt(unsigned int irq_num,
+			void *dev_id);
+
+extern void stm32_audio_init_start(void);
+
 #endif /* SRC_DRIVERS_AUDIO_STM32_STM32_AUDIO_F7_H_ */

@@ -15,9 +15,6 @@
 
 #include <drivers/audio/stm32_audio.h>
 
-static irq_return_t stm32_audio_i2s_dma_interrupt(unsigned int irq_num,
-        void *dev_id);
-
 static struct stm32_dev_priv stm32_dac;
 
 struct stm32_dev_priv {
@@ -34,24 +31,16 @@ static struct stm32_hw_out {
 /* Two buffers of STM32_MAX_BUF_LEN size */
 static uint8_t dac_out_bufs[STM32_MAX_BUF_LEN * 2];
 
-static void stm32_dev_start(struct audio_dev *dev) {
-	struct stm32_dev_priv *priv = dev->ad_priv;
-
-	if (0 != irq_attach(STM32_AUDIO_OUT_IRQ, stm32_audio_i2s_dma_interrupt,
-				0, dev, "stm32_audio_out")) {
-		log_error("irq_attach error");
-	}
-
-	if (0 != BSP_AUDIO_OUT_Init(OUTPUT_DEVICE_HEADPHONE, DEFAULT_VOLUME,
-				priv->rate)) {
-		log_error("EVAL_AUDIO_Init error");
-	}
-
+void stm32_audio_out_start(void) {
 	BSP_AUDIO_OUT_SetAudioFrameSlot(CODEC_AUDIOFRAME_SLOT_02);
 
 	if (0 != BSP_AUDIO_OUT_Play((uint16_t*) &dac_out_bufs[0], sizeof(dac_out_bufs))) {
 		log_error("EVAL_AUDIO_Play error");
 	}
+}
+
+static void stm32_dev_start(struct audio_dev *dev) {
+	stm32_audio_init_start();
 }
 
 static void stm32_dev_pause(struct audio_dev *dev) {
@@ -73,7 +62,7 @@ static void stm32_dev_stop(struct audio_dev *dev) {
 }
 
 static int stm32_dev_ioctl(struct audio_dev *dev, int cmd, void *args) {
-	struct stm32_dev_priv *priv = dev->ad_priv;
+	//struct stm32_dev_priv *priv = dev->ad_priv;
 	switch(cmd) {
 	case ADIOCTL_IN_SUPPORT:
 		return 0;
@@ -82,11 +71,11 @@ static int stm32_dev_ioctl(struct audio_dev *dev, int cmd, void *args) {
 	case ADIOCTL_BUFLEN:
 		return STM32_MAX_BUF_LEN;
 	case ADIOCTL_GET_RATE:
-		return 0; /* There is no function to get rate in Cube...*/
+		return 16000;
 	case ADIOCTL_SET_RATE:
 	{
-		priv->rate = *(int *) args;
-		BSP_AUDIO_OUT_SetFrequency(priv->rate);
+		//priv->rate = *(int *) args;
+		//BSP_AUDIO_OUT_SetFrequency(priv->rate);
 		return 0;
 	}
 	default:
@@ -108,6 +97,7 @@ static struct stm32_dev_priv stm32_dac = {
 	.devid       = STM32_ID_DIGITAL_OUT,
 	.out_buf     = &dac_out_bufs[0],
 	.out_buf_len = STM32_MAX_BUF_LEN,
+	.rate        = 0,
 };
 
 AUDIO_DEV_DEF("stm32_dac", (struct audio_dev_ops *)&stm32_dev_ops, &stm32_dac, AUDIO_DEV_OUTPUT);
@@ -138,7 +128,7 @@ void BSP_AUDIO_OUT_Error_CallBack() {
 	log_error("");
 }
 
-static irq_return_t stm32_audio_i2s_dma_interrupt(unsigned int irq_num,
+irq_return_t stm32_audio_i2s_dma_interrupt(unsigned int irq_num,
 		void *audio_dev) {
 	audio_out_irq_handler();
 	return IRQ_HANDLED;
