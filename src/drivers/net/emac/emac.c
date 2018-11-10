@@ -119,7 +119,6 @@ struct ti816x_priv {
 
 	struct emac_desc *tx_wait_head;
 	struct emac_desc *tx_wait_tail;
-	int tx_busy;
 };
 
 static void ti816x_config(struct net_device *dev);
@@ -403,7 +402,6 @@ static int ti816x_xmit(struct net_device *dev, struct sk_buff *skb) {
 			} else {
 				dev_priv->tx_wait_head = desc;
 			}
-			dev_priv->tx_wait_tail = desc;
 		} else {
 			/* Process packet immediately */
 			dev_priv->tx_cur_head = desc;
@@ -616,7 +614,7 @@ static irq_return_t ti816x_interrupt_mactxint0(unsigned int irq_num,
 		if (dev_priv->tx_cur_head) {
 			emac_queue_activate(dev_priv->tx_cur_head,
 					EMAC_R_TXHDP(DEFAULT_CHANNEL));
-			dev_priv->tx_wait_head = dev_priv->tx_wait_tail = NULL;
+			dev_priv->tx_wait_head = NULL;
 		}
 	}
 	ipl_restore(sp);
