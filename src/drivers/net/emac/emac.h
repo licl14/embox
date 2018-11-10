@@ -12,20 +12,6 @@
 #include <endian.h>
 #include <net/mii.h>
 
-/**
- * EMAC0/MDIO Base Address
- */
-#define EMAC_BASE	OPTION_GET(NUMBER, emac_base)
-#define EMAC_CTRL_BASE	OPTION_GET(NUMBER, emac_ctrl_base)
-#define MDIO_BASE	OPTION_GET(NUMBER, mdio_base)
-
-/**
- * CPGMAC0 Interrupts
- */
-#define MACRXTHR0 (OPTION_GET(NUMBER, irq_base) + 0) /* CPGMAC0 Receive threshold interrupt */
-#define MACRXINT0 (OPTION_GET(NUMBER, irq_base) + 1) /* CPGMAC0 Receive pending interrupt */
-#define MACTXINT0 (OPTION_GET(NUMBER, irq_base) + 2) /* CPGMAC0 Transmit pending interrupt */
-#define MACMISC0  (OPTION_GET(NUMBER, irq_base) + 3) /* CPGMAC0 Stat, Host, MDIO LINKINT or MDIO USERINT */
 
 #define EMAC_CHANNEL_COUNT 8
 
@@ -154,14 +140,14 @@
 #define MDIO_R_USERPHYSEL1      0x8C /* MDIO User PHY Select Register 1 */
 
 /* MDIO bits */
-#define MDIO_CONTROL_IDLE		(0x80000000)
-#define MDIO_CONTROL_ENABLE		(0x40000000)
-#define MDIO_CONTROL_FAULT_ENABLE	(0x40000)
-#define MDIO_CONTROL_FAULT		(0x80000)
-#define MDIO_USERACCESS0_GO		(0x80000000)
-#define MDIO_USERACCESS0_WRITE_READ	(0x0)
-#define MDIO_USERACCESS0_WRITE_WRITE	(0x40000000)
-#define MDIO_USERACCESS0_ACK		(0x20000000)
+#define MDIO_CONTROL_IDLE            (0x80000000)
+#define MDIO_CONTROL_ENABLE          (0x40000000)
+#define MDIO_CONTROL_FAULT_ENABLE    (0x40000)
+#define MDIO_CONTROL_FAULT           (0x80000)
+#define MDIO_USERACCESS0_GO          (0x80000000)
+#define MDIO_USERACCESS0_WRITE_READ  (0x0)
+#define MDIO_USERACCESS0_WRITE_WRITE (0x40000000)
+#define MDIO_USERACCESS0_ACK         (0x20000000)
 
 /**
  * EMAC Buffer Descriptor
