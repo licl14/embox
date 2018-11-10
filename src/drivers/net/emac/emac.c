@@ -39,6 +39,10 @@
 
 #include <framework/mod/options.h>
 
+
+extern void dcache_inval(const void *p, size_t size);
+extern void dcache_flush(const void *p, size_t size);
+
 EMBOX_UNIT_INIT(ti816x_init);
 
 #define MODOPS_PREP_BUFF_CNT	OPTION_GET(NUMBER, prep_buff_cnt)
@@ -46,21 +50,29 @@ EMBOX_UNIT_INIT(ti816x_init);
 #define DEFAULT_CHANNEL 0
 #define DEFAULT_MASK ((uint8_t)(1 << DEFAULT_CHANNEL))
 
-#define EMAC_SAFE_PADDING 64
-
 #define RX_BUFF_LEN       0x800
 #define RX_FRAME_MAX_LEN  \
 	min(min(RX_BUFF_LEN, skb_max_size()), (ETH_FRAME_LEN + ETH_FCS_LEN))
 
 struct emac_desc_head {
-	char buf[EMAC_SAFE_PADDING];
 	struct emac_desc desc;
 	char data[RX_BUFF_LEN];
 	struct sk_buff *skb;
 } __attribute__ ((aligned (0x4)));
 
+struct ti816x_priv {
+	struct emac_desc *rx_head;
+
+	struct emac_desc *rx_wait_head;
+	struct emac_desc *rx_wait_tail;
+
+	struct emac_desc *tx_cur_head;
+
+	struct emac_desc *tx_wait_head;
+};
+
 static struct emac_desc_head *head_from_desc(struct emac_desc *desc) {
-	return (struct emac_desc_head *) (((char*)desc) - EMAC_SAFE_PADDING);
+	return (struct emac_desc_head *) (((char*)desc));
 }
 
 static struct emac_desc_head emac_rx_list[MODOPS_PREP_BUFF_CNT];
@@ -73,12 +85,6 @@ static struct emac_desc_head *emac_hdesc_tx_alloc(void) {
 	sp = ipl_save();
 	{
 		res = pool_alloc(&emac_tx_desc_pool);
-#if 0
-		if (res) {
-			assert(res);
-			memset(res, 0xFF, EMAC_SAFE_PADDING);
-		}
-#endif
 	}
 	ipl_restore(sp);
 
@@ -91,35 +97,15 @@ static void emac_hdesc_tx_free(struct emac_desc_head *obj) {
 
 	sp = ipl_save();
 	{
-#if 0
-		int i;
-		for (i = 0; i < EMAC_SAFE_PADDING; i++)
-			assert(obj->buf[i] == 0xFF);
-#endif
 		pool_free(&emac_tx_desc_pool, obj);
 	}
 	ipl_restore(sp);
 }
 
-extern void dcache_inval(const void *p, size_t size);
-extern void dcache_flush(const void *p, size_t size);
-
 static void emac_desc_set_next(struct emac_desc *desc, void *next) {
 	desc->next = (uintptr_t) next;
 	dcache_flush(desc, sizeof(struct emac_desc));
 }
-
-struct ti816x_priv {
-	struct emac_desc *rx_head;
-
-	struct emac_desc *rx_wait_head;
-	struct emac_desc *rx_wait_tail;
-
-	struct emac_desc *tx_cur_head;
-
-	struct emac_desc *tx_wait_head;
-	struct emac_desc *tx_wait_tail;
-};
 
 static void ti816x_config(struct net_device *dev);
 
