@@ -76,7 +76,7 @@ struct emac_desc_head {
 } __attribute__ ((aligned (0x4)));
 
 struct ti816x_priv {
-	struct emac_desc *rx_head;
+	struct emac_desc *rx_cur_head;
 
 	struct emac_desc *rx_wait_head;
 	struct emac_desc *rx_wait_tail;
@@ -84,6 +84,7 @@ struct ti816x_priv {
 	struct emac_desc *tx_cur_head;
 
 	struct emac_desc *tx_wait_head;
+	struct emac_desc *tx_wait_tail;
 };
 
 static struct emac_desc_head *head_from_desc(struct emac_desc *desc) {
@@ -348,7 +349,7 @@ static void emac_alloc_rx_queue(struct ti816x_priv *dev_priv) {
 	int i;
 	assert(dev_priv);
 
-	dev_priv->rx_head = &emac_rx_list[0].desc;
+	dev_priv->rx_cur_head = &emac_rx_list[0].desc;
 	dev_priv->rx_wait_head = NULL;
 	dev_priv->rx_wait_tail = NULL;
 
@@ -361,7 +362,7 @@ static void emac_alloc_rx_queue(struct ti816x_priv *dev_priv) {
 		emac_desc_set_next(	&emac_rx_list[i - 1].desc, &emac_rx_list[i].desc);
 	}
 
-	emac_queue_activate(dev_priv->rx_head, EMAC_R_RXHDP(DEFAULT_CHANNEL));
+	emac_queue_activate(dev_priv->rx_cur_head, EMAC_R_RXHDP(DEFAULT_CHANNEL));
 }
 
 static int ti816x_xmit(struct net_device *dev, struct sk_buff *skb) {
@@ -393,10 +394,11 @@ static int ti816x_xmit(struct net_device *dev, struct sk_buff *skb) {
 		if (dev_priv->tx_cur_head) {
 			/* Add packet to the waiting queue */
 			if (dev_priv->tx_wait_head) {
-				emac_desc_set_next(dev_priv->tx_wait_head, desc);
+				emac_desc_set_next(dev_priv->tx_wait_tail, desc);
 			} else {
 				dev_priv->tx_wait_head = desc;
 			}
+			dev_priv->tx_wait_tail = desc;
 		} else {
 			/* Process packet immediately */
 			dev_priv->tx_cur_head = desc;
@@ -473,7 +475,7 @@ static irq_return_t ti816x_interrupt_macrxint0(unsigned int irq_num,
 	dev_priv = netdev_priv(dev_id, struct ti816x_priv);
 	assert(dev_priv != NULL);
 
-	desc = dev_priv->rx_head;
+	desc = dev_priv->rx_cur_head;
 
 	eoq = 0;
 	do {
@@ -514,7 +516,7 @@ static irq_return_t ti816x_interrupt_macrxint0(unsigned int irq_num,
 
 		eoq = desc->flags & EMAC_DESC_F_EOQ;
 		desc = (void*) desc->next;
-		dev_priv->rx_head = desc;
+		dev_priv->rx_cur_head = desc;
 
 		log_debug("reuse %#x", &hdesc->desc);
 		emac_desc_build(&hdesc->desc, hdesc->data, RX_FRAME_MAX_LEN, 0, EMAC_DESC_F_OWNER);
@@ -534,8 +536,8 @@ static irq_return_t ti816x_interrupt_macrxint0(unsigned int irq_num,
 
 	if (eoq) {
 		log_debug("update rx queue");
-		dev_priv->rx_head = dev_priv->rx_wait_head;
-		emac_queue_activate(dev_priv->rx_head, EMAC_R_RXHDP(DEFAULT_CHANNEL));
+		dev_priv->rx_cur_head = dev_priv->rx_wait_head;
+		emac_queue_activate(dev_priv->rx_cur_head, EMAC_R_RXHDP(DEFAULT_CHANNEL));
 	}
 
 	emac_eoi(RXEOI);
