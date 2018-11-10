@@ -47,6 +47,21 @@ EMBOX_UNIT_INIT(ti816x_init);
 
 #define MODOPS_PREP_BUFF_CNT	OPTION_GET(NUMBER, prep_buff_cnt)
 
+/**
+ * EMAC0/MDIO Base Address
+ */
+#define EMAC_BASE	OPTION_GET(NUMBER, emac_base)
+#define EMAC_CTRL_BASE	OPTION_GET(NUMBER, emac_ctrl_base)
+
+/**
+ * CPGMAC0 Interrupts
+ */
+#define MACRXTHR0 (OPTION_GET(NUMBER, irq_base) + 0) /* CPGMAC0 Receive threshold interrupt */
+#define MACRXINT0 (OPTION_GET(NUMBER, irq_base) + 1) /* CPGMAC0 Receive pending interrupt */
+#define MACTXINT0 (OPTION_GET(NUMBER, irq_base) + 2) /* CPGMAC0 Transmit pending interrupt */
+#define MACMISC0  (OPTION_GET(NUMBER, irq_base) + 3) /* CPGMAC0 Stat, Host, MDIO LINKINT or MDIO USERINT */
+
+
 #define DEFAULT_CHANNEL 0
 #define DEFAULT_MASK ((uint8_t)(1 << DEFAULT_CHANNEL))
 
@@ -711,7 +726,8 @@ static int ti816x_init(void) {
 	}
 
 	nic->drv_ops = &ti816x_ops;
-	nic->irq = nic->base_addr = 0;
+	nic->irq = MACRXTHR0;
+	nic->base_addr = EMAC_BASE;
 
 	nic_priv = netdev_priv(nic, struct ti816x_priv);
 	assert(nic_priv != NULL);
@@ -757,13 +773,6 @@ static struct periph_memory_desc emac_ctrl_region = {
 };
 
 PERIPH_MEMORY_DEFINE(emac_ctrl_region);
-
-static struct periph_memory_desc emac_mdio_region = {
-	.start = (uint32_t) MDIO_BASE,
-	.len   = 0x800,
-};
-
-PERIPH_MEMORY_DEFINE(emac_mdio_region);
 
 #if EMAC_VERSION == 1
 /* Neccessary to clear interrupts */
