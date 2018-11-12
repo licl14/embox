@@ -54,7 +54,13 @@
 #define EMAC_R_TXINTMASKSET      0x088 /* Transmit Interrupt Mask Set
 										  Register */
 #define EMAC_R_TXINTMASKCLEAR    0x08C /* Transmit Interrupt Clear Register */
-#define EMAC_R_MACINVECTOR       0x090 /* MAC Input Vector Registe */
+
+#define EMAC_R_MACINVECTOR       0x090 /* MAC Input Vector Register */
+# define EMAC_MACINV_STATPEND  (0x1 << 27)
+# define EMAC_MACINV_HOSTPEND  (0x1 << 26)
+# define EMAC_MACINV_TXPEND    (DEFAULT_MASK << 16)
+# define EMAC_MACINV_RXPEND    (DEFAULT_MASK << 0)
+
 #define EMAC_R_MACEOIVECTOR      0x094 /* MAC End of Interrupt Vector
 										  Register */
 #define EMAC_R_RXINTSTATRAW      0x0A0 /* Receive Interrupt Status (Unmasked)
@@ -85,7 +91,18 @@
 													 Free Buffer Count
 													 Register */
 #define EMAC_R_MACCONTROL        0x160 /* MAC Control Register */
-#define EMAC_R_MACSTATUS         0x164 /* MAC Status Register */
+# define EMAC_R_MACSTATUS         0x164 /* MAC Status Register */
+# define EMAC_MACSTAT_IDLE(x)            ((x >> 31) & 0x1) /* MACSTATUS */
+# define EMAC_MACSTAT_TXERRCODE(x)       ((x >> 20) & 0xf)
+# define EMAC_MACSTAT_TXERRCH(x)         ((x >> 16) & 0x7)
+# define EMAC_MACSTAT_RXERRCODE(x)       ((x >> 12) & 0xf)
+# define EMAC_MACSTAT_RXERRCH(x)         ((x >> 8) & 0x7)
+# define EMAC_MACSTAT_RGMIIGIG(x)        ((x >> 4) & 0x1)
+# define EMAC_MACSTAT_RGMIIFULLDUPLEX(x) ((x >> 3) & 0x1)
+# define EMAC_MACSTAT_RXQOSACT(x)        ((x >> 2) & 0x1)
+# define EMAC_MACSTAT_RXFLOWACT(x)       ((x >> 1) & 0x1)
+# define EMAC_MACSTAT_TXFLOWACT(x)       ((x >> 0) & 0x1)
+
 #define EMAC_R_EMCONTROL         0x168 /* Emulation Control Register */
 #define EMAC_R_FIFOCONTROL       0x16C /* FIFO Control Register */
 #define EMAC_R_MACCONFIG         0x170 /* MAC Configuration Register */
@@ -149,47 +166,6 @@
 #define MDIO_USERACCESS0_WRITE_WRITE (0x40000000)
 #define MDIO_USERACCESS0_ACK         (0x20000000)
 
-/**
- * EMAC Buffer Descriptor
- */
-struct emac_desc {
-	uint32_t next;
-	uint32_t data;
-#if __BYTE_ORDER == __BIG_ENDIAN
-	uint16_t data_off;
-	uint16_t data_len;
-#elif __BYTE_ORDER == __LITTLE_ENDIAN
-	uint16_t data_len;
-	uint16_t data_off;
-#endif
-#if __BYTE_ORDER == __BIG_ENDIAN
-	uint16_t flags;
-	uint16_t packet_len;
-#elif __BYTE_ORDER == __LITTLE_ENDIAN
-	uint16_t packet_len;
-	uint16_t flags;
-#endif
-};
-
-/**
- * EMAC Descriptor Flags
- */
-#define EMAC_DESC_F_SOP        0x8000U /* Start of Packet (SOP) Flag */
-#define EMAC_DESC_F_EOP        0x4000U /* End of Packet (EOP) Flag */
-#define EMAC_DESC_F_OWNER      0x2000U /* Ownership (OWNER) Flag */
-#define EMAC_DESC_F_EOQ        0x1000U /* End of Queue (EOQ) Flag */
-#define EMAC_DESC_F_TDOWNCMPLT 0x0800U /* Teardown Complete (TDOWNCMPLT) Flag */
-#define EMAC_DESC_F_PASSCRC    0x0400U /* Pass CRC (PASSCRC) Flag */
-#define EMAC_DESC_F_JABBER     0x0200U /* Jabber Flag */
-#define EMAC_DESC_F_OVERSIZE   0x0100U /* Oversize Flag */
-#define EMAC_DESC_F_FRAGMENT   0x0080U /* Fragment Flag */
-#define EMAC_DESC_F_UNDERSIZED 0x0040U /* Undersized Flag */
-#define EMAC_DESC_F_CONTROL    0x0020U /* Control Flag */
-#define EMAC_DESC_F_OVERRUN    0x0010U /* Overrun Flag */
-#define EMAC_DESC_F_CODEERROR  0x0008U /* Code Error (CODEERROR) Flag */
-#define EMAC_DESC_F_ALIGNERROR 0x0004U /* Alignment Error (ALIGNERROR) Flag */
-#define EMAC_DESC_F_CRCERROR   0x0002U /* CRC Error (CRCERROR) Flag */
-#define EMAC_DESC_F_NOMATCH    0x0001U /* No Match (NOMATCH) Flag */
 
 /**
  * Control Module Base Address

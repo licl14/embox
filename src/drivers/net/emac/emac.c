@@ -16,7 +16,6 @@
 #include <kernel/irq.h>
 #include <kernel/printk.h>
 #include <hal/reg.h>
-#include "emac.h"
 
 #include <mem/misc/pool.h>
 
@@ -36,6 +35,9 @@
 #include <drivers/common/memory.h>
 
 #include <mem/misc/pool.h>
+
+#include "emac.h"
+#include "emac_desc.h"
 
 #include <framework/mod/options.h>
 
@@ -63,7 +65,7 @@ EMBOX_UNIT_INIT(ti816x_init);
 
 
 #define DEFAULT_CHANNEL 0
-#define DEFAULT_MASK ((uint8_t)(1 << DEFAULT_CHANNEL))
+#define DEFAULT_MASK    ((uint8_t)(1 << DEFAULT_CHANNEL))
 
 #define RX_BUFF_LEN       0x800
 #define RX_FRAME_MAX_LEN  \
@@ -544,24 +546,10 @@ static irq_return_t ti816x_interrupt_macrxint0(unsigned int irq_num,
 	return IRQ_HANDLED;
 }
 
-#define STATPEND (0x1 << 27) /* MACINVECTOR */
-#define HOSTPEND (0x1 << 26)
-#define TXPEND (DEFAULT_MASK << 16)
-#define RXPEND (DEFAULT_MASK << 0)
-#define IDLE(x) ((x >> 31) & 0x1) /* MACSTATUS */
-#define TXERRCODE(x) ((x >> 20) & 0xf)
-#define TXERRCH(x) ((x >> 16) & 0x7)
-#define RXERRCODE(x) ((x >> 12) & 0xf)
-#define RXERRCH(x) ((x >> 8) & 0x7)
-#define RGMIIGIG(x) ((x >> 4) & 0x1)
-#define RGMIIFULLDUPLEX(x) ((x >> 3) & 0x1)
-#define RXQOSACT(x) ((x >> 2) & 0x1)
-#define RXFLOWACT(x) ((x >> 1) & 0x1)
-#define TXFLOWACT(x) ((x >> 0) & 0x1)
 
-#define CHECK_TXOK(x) 1
 #define CHECK_TXERR(x) \
 	((x) & (EMAC_DESC_F_OWNER | EMAC_DESC_F_TDOWNCMPLT))
+
 static irq_return_t ti816x_interrupt_mactxint0(unsigned int irq_num,
 		void *dev_id) {
 	struct ti816x_priv *dev_priv;
@@ -579,7 +567,6 @@ static irq_return_t ti816x_interrupt_mactxint0(unsigned int irq_num,
 		desc = 	(struct emac_desc *)REG_LOAD(EMAC_BASE + EMAC_R_TXCP(DEFAULT_CHANNEL));
 		hdesc = head_from_desc(desc);
 		dcache_inval(desc, sizeof *desc);
-		assert(CHECK_TXOK(desc->flags));
 		assert(!CHECK_TXERR(desc->flags));
 
 		eoq = desc->flags & EMAC_DESC_F_EOQ;
@@ -621,11 +608,11 @@ static irq_return_t ti816x_interrupt_macmisc0(unsigned int irq_num,
 
 	macinvector = REG_LOAD(EMAC_BASE + EMAC_R_MACINVECTOR);
 
-	if (macinvector & STATPEND) {
+	if (macinvector & EMAC_MACINV_STATPEND) {
 		emac_set_stat_regs(0xffffffff);
-		macinvector &= ~STATPEND;
+		macinvector &= ~EMAC_MACINV_STATPEND;
 	}
-	if (macinvector & HOSTPEND) {
+	if (macinvector & EMAC_MACINV_HOSTPEND) {
 		unsigned long macstatus;
 
 		macstatus = REG_LOAD(EMAC_BASE + EMAC_R_MACSTATUS);
@@ -636,20 +623,20 @@ static irq_return_t ti816x_interrupt_macmisc0(unsigned int irq_num,
 				"\t\trgmiigig %lx; rgmiifullduplex %lx\n"
 				"\t\trxqosact %lx; rxflowact %lx; txflowact %lx\n",
 				macstatus,
-				IDLE(macstatus),
-				TXERRCODE(macstatus), TXERRCH(macstatus),
-				RXERRCODE(macstatus), RXERRCH(macstatus),
-				RGMIIGIG(macstatus), RGMIIFULLDUPLEX(macstatus),
-				RXQOSACT(macstatus), RXFLOWACT(macstatus), TXFLOWACT(macstatus));
+				EMAC_MACSTAT_IDLE(macstatus),
+				EMAC_MACSTAT_TXERRCODE(macstatus), EMAC_MACSTAT_TXERRCH(macstatus),
+				EMAC_MACSTAT_RXERRCODE(macstatus), EMAC_MACSTAT_RXERRCH(macstatus),
+				EMAC_MACSTAT_RGMIIGIG(macstatus), EMAC_MACSTAT_RGMIIFULLDUPLEX(macstatus),
+				EMAC_MACSTAT_RXQOSACT(macstatus), EMAC_MACSTAT_RXFLOWACT(macstatus), EMAC_MACSTAT_TXFLOWACT(macstatus));
 
 		emac_reset();
 		ti816x_config((struct net_device *)dev_id);
 
-		macinvector &= ~HOSTPEND;
+		macinvector &= ~EMAC_MACINV_HOSTPEND;
 	}
-	if (macinvector & (RXPEND | TXPEND)) {
+	if (macinvector & (EMAC_MACINV_RXPEND | EMAC_MACINV_TXPEND)) {
 		/* umm.. ok */
-		macinvector &= ~(RXPEND | TXPEND);
+		macinvector &= ~(EMAC_MACINV_RXPEND | EMAC_MACINV_TXPEND);
 	}
 	if (macinvector) {
 		log_debug("ti816x_interrupt_macmisc0: unhandled interrupt\n"

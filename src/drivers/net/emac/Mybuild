@@ -25,4 +25,5 @@ module emac {
 	depends embox.net.dev
 	depends embox.net.entry_api
 	depends embox.util.DList
+	depends embox.net.util.show_packet
 }
