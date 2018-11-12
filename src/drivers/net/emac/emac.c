@@ -70,6 +70,7 @@ EMBOX_UNIT_INIT(ti816x_init);
 	min(min(RX_BUFF_LEN, skb_max_size()), (ETH_FRAME_LEN + ETH_FCS_LEN))
 
 struct emac_desc_head {
+	uint8_t padding[64];
 	struct emac_desc desc;
 	uint8_t data[RX_BUFF_LEN];
 	struct sk_buff *skb;
@@ -77,18 +78,16 @@ struct emac_desc_head {
 
 struct ti816x_priv {
 	struct emac_desc *rx_cur_head;
-
 	struct emac_desc *rx_wait_head;
 	struct emac_desc *rx_wait_tail;
 
-	struct emac_desc *tx_cur_head;
-
-	struct emac_desc *tx_wait_head;
-	struct emac_desc *tx_wait_tail;
+	volatile struct emac_desc *tx_cur_head;
+	volatile struct emac_desc *tx_wait_head;
+	volatile struct emac_desc *tx_wait_tail;
 };
 
 static struct emac_desc_head *head_from_desc(struct emac_desc *desc) {
-	return (struct emac_desc_head *) (((char*)desc));
+	return (struct emac_desc_head *) (((char*)desc - 64));
 }
 
 static struct emac_desc_head emac_rx_list[MODOPS_PREP_BUFF_CNT];
@@ -336,7 +335,7 @@ static void emac_desc_build(struct emac_desc *desc, uint8_t *data,
 
 static int emac_desc_confirm(struct emac_desc *desc, uint32_t reg_cp) {
 	REG_STORE(EMAC_BASE + reg_cp, (uintptr_t)desc);
-	return (uintptr_t)desc != REG_LOAD(EMAC_BASE + reg_cp);
+	return (uintptr_t)desc == REG_LOAD(EMAC_BASE + reg_cp);
 }
 
 static void emac_queue_activate(struct emac_desc *desc, uint32_t reg_hdp) {
@@ -394,7 +393,7 @@ static int ti816x_xmit(struct net_device *dev, struct sk_buff *skb) {
 		if (dev_priv->tx_cur_head) {
 			/* Add packet to the waiting queue */
 			if (dev_priv->tx_wait_head) {
-				emac_desc_set_next(dev_priv->tx_wait_tail, desc);
+				emac_desc_set_next((struct emac_desc *)dev_priv->tx_wait_tail, desc);
 			} else {
 				dev_priv->tx_wait_head = desc;
 			}
@@ -576,46 +575,41 @@ static irq_return_t ti816x_interrupt_mactxint0(unsigned int irq_num,
 	dev_priv = netdev_priv(dev_id, struct ti816x_priv);
 	assert(dev_priv != NULL);
 
-	desc = dev_priv->tx_cur_head;
-
-	if (desc == NULL) {
-		return IRQ_HANDLED;
-	}
-
-	do {
+	{
+		desc = 	(struct emac_desc *)REG_LOAD(EMAC_BASE + EMAC_R_TXCP(DEFAULT_CHANNEL));
 		hdesc = head_from_desc(desc);
 		dcache_inval(desc, sizeof *desc);
 		assert(CHECK_TXOK(desc->flags));
-		if (desc->flags & EMAC_DESC_F_OWNER) {
-			continue;
-		}
-
 		assert(!CHECK_TXERR(desc->flags));
 
 		eoq = desc->flags & EMAC_DESC_F_EOQ;
-		emac_desc_confirm(desc, EMAC_R_TXCP(DEFAULT_CHANNEL));
-
-		desc = (void*) desc->next;
 
 		skb_free(hdesc->skb);
 		emac_hdesc_tx_free(hdesc);
 
-	} while (!eoq && desc);
+		REG_STORE(EMAC_BASE + EMAC_R_TXCP(DEFAULT_CHANNEL), (uintptr_t)desc);
 
-	assert(eoq && !desc);
+	}
 
+	if (!eoq) {
+		assert(desc->next);
+		goto out;
+	}
+	assert(!desc->next);
 	sp = ipl_save();
 	{
-		dev_priv->tx_cur_head = dev_priv->tx_wait_head;
-
-		if (dev_priv->tx_cur_head) {
-			emac_queue_activate(dev_priv->tx_cur_head,
-					EMAC_R_TXHDP(DEFAULT_CHANNEL));
+		if (dev_priv->tx_wait_head) {
+			dev_priv->tx_cur_head = dev_priv->tx_wait_head;
 			dev_priv->tx_wait_head = NULL;
+			dev_priv->tx_wait_tail = NULL;
+			emac_queue_activate((struct emac_desc *)dev_priv->tx_cur_head,
+					EMAC_R_TXHDP(DEFAULT_CHANNEL));
+		} else {
+			dev_priv->tx_cur_head = NULL;
 		}
 	}
 	ipl_restore(sp);
-
+out:
 	emac_eoi(TXEOI);
 
 	return IRQ_HANDLED;
